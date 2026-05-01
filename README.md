@@ -11,3 +11,4 @@ A auth system for my future projects.
 # to-do
 - Change Email
 - Signup with providers
+- Add Usernames
