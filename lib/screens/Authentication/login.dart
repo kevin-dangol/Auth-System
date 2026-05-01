@@ -1,6 +1,7 @@
 import 'package:basic_auth_app/Services/auth.dart';
 import 'package:basic_auth_app/constants/InputDecorations.dart';
 import 'package:basic_auth_app/constants/buttonDecorations.dart';
+import 'package:basic_auth_app/screens/Authentication/password_reset.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -21,6 +22,9 @@ class _LoginPageState extends State<LoginPage> {
   String email = '';
   String pass = '';
   String error = '';
+  
+  // ignore: recursive_getters
+  Function get togglePage => togglePage;
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +115,26 @@ class _LoginPageState extends State<LoginPage> {
 
                   ),
 
-                  Text(error),
+                  Center(child: Text(error)),
+
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: GestureDetector(
+                      onTap: () {
+
+                        Navigator.push(context,
+                          MaterialPageRoute(builder: (context) {
+                            return PasswordReset(togglePage: widget.togglePage);
+                          })
+                        );
+
+                      },
+
+                      child: Text('Forgot Password?', style: TextStyle(color: const Color.fromARGB(255, 67, 65, 216)),),
+                    ),
+                  ),
+
+                  SizedBox(height: 20),
 
                   ElevatedButton(
 
@@ -124,7 +147,10 @@ class _LoginPageState extends State<LoginPage> {
 
                         } catch(e){
 
-                          debugPrint(e.toString());
+                          debugPrint('Error: $e');
+                          setState(() {
+                            error = 'An error occurred, please try again.';
+                          });
 
                         }
                       }
@@ -161,6 +187,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
+
                 ],
               ),
             ),
