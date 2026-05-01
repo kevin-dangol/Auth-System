@@ -1,3 +1,4 @@
+import 'package:basic_auth_app/Services/auth.dart';
 import 'package:basic_auth_app/constants/InputDecorations.dart';
 import 'package:basic_auth_app/constants/buttonDecorations.dart';
 import 'package:flutter/gestures.dart';
@@ -14,6 +15,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   
+  final FirebaseAuthServices auth = FirebaseAuthServices();
   final _formKey = GlobalKey<FormState>();
 
   String email = '';
@@ -117,7 +119,8 @@ class _LoginPageState extends State<LoginPage> {
                       if(_formKey.currentState!.validate()){
                         try{
 
-                          debugPrint(email + pass);
+                          dynamic result = auth.loginWithEmailAndPass(email, pass);
+                          debugPrint(result);
 
                         } catch(e){
 

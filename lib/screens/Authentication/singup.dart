@@ -1,3 +1,4 @@
+import 'package:basic_auth_app/Services/auth.dart';
 import 'package:basic_auth_app/constants/InputDecorations.dart';
 import 'package:basic_auth_app/constants/buttonDecorations.dart';
 import 'package:flutter/gestures.dart';
@@ -15,6 +16,8 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupState extends State<SignupPage> {
+
+  final FirebaseAuthServices auth = FirebaseAuthServices();
 
   final _formKey = GlobalKey<FormState>();
 
@@ -127,7 +130,8 @@ class _SignupState extends State<SignupPage> {
                       if(_formKey.currentState!.validate()){
                         try{
 
-                          debugPrint('Email = $email \nPass = $pass');
+                          dynamic result = auth.signupWithEmailAndPass(email, pass);
+                          debugPrint(result); 
 
                         } catch(e){
 
