@@ -113,6 +113,31 @@ class FirebaseAuthServices {
 
   }
 
+  Future resetEmail(String newEmail, String pass) async{
+
+    try{
+
+      AuthCredential credential = EmailAuthProvider.credential(
+        email: auth.currentUser!.email!,
+        password: pass,
+      );
+
+      await auth.currentUser?.reauthenticateWithCredential(credential);
+
+      await auth.currentUser?.verifyBeforeUpdateEmail(newEmail);
+
+      await auth.currentUser?.reload();
+
+      return true;
+
+    } on FirebaseAuthException catch(e){
+
+      return e.message;
+
+    }
+
+  }
+
   Future logout() async{
 
     try {
