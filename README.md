@@ -1,5 +1,5 @@
 # Auth System
-A auth system for my future projects.
+A auth system made using flutter & firebase for my future projects.
 
 # features
 - Login
