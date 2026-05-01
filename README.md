@@ -1,3 +1,1 @@
-# basic_auth_app
-
-A new Flutter project.
+A basic reuseable auth system using flutter
