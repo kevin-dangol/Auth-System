@@ -1,6 +1,6 @@
 import 'package:basic_auth_app/Services/auth.dart';
-import 'package:basic_auth_app/constants/InputDecorations.dart';
-import 'package:basic_auth_app/constants/buttonDecorations.dart';
+import 'package:basic_auth_app/constants/Input_decorations.dart';
+import 'package:basic_auth_app/constants/button_decorations.dart';
 import 'package:basic_auth_app/screens/Authentication/authentication.dart';
 import 'package:flutter/material.dart';
 
