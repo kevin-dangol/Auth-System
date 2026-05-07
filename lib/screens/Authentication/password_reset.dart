@@ -92,7 +92,7 @@ class _PasswordResetState extends State<PasswordReset> {
                       if(_formKey.currentState!.validate()){
                         try{
 
-                          dynamic result = auth.reserPassword(email);
+                          dynamic result = auth.resetPassword(email);
                           
                           if(result){
                             setState(() {

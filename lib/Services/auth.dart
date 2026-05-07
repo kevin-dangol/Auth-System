@@ -19,7 +19,6 @@ class FirebaseAuthServices {
         uid: user.uid,
         email: user.email,
         photoURL: user.photoURL,
-        emailVerified: user.emailVerified,
       );
     }
 
@@ -47,8 +46,7 @@ class FirebaseAuthServices {
         'UserID': user.uid,
         'UserEmail': user.email,
         'UserPfpUrl': defualtpfp,
-        'IsEmailVerified': user.emailVerified,
-      }, SetOptions(merge: true));
+      });
 
       return userFromFirebaseUser(user);
 
@@ -97,7 +95,7 @@ class FirebaseAuthServices {
 
   }
 
-  Future reserPassword(String email) async{
+  Future resetPassword(String email) async{
 
     try{
 
@@ -113,29 +111,68 @@ class FirebaseAuthServices {
 
   }
 
-  Future resetEmail(String newEmail, String pass) async{
+  Future<bool> resetEmail(String newEmail, String pass) async {
 
-    try{
+    try {
+
+      final user = auth.currentUser;
+
+      if (user == null) return false;
 
       AuthCredential credential = EmailAuthProvider.credential(
-        email: auth.currentUser!.email!,
+        email: user.email!,
         password: pass,
       );
 
-      await auth.currentUser?.reauthenticateWithCredential(credential);
+      await user.reauthenticateWithCredential(credential);
 
-      await auth.currentUser?.verifyBeforeUpdateEmail(newEmail);
-
-      await auth.currentUser?.reload();
+      await user.verifyBeforeUpdateEmail(newEmail);
 
       return true;
 
-    } on FirebaseAuthException catch(e){
+    } on FirebaseAuthException catch (e) {
 
-      return e.message;
+      debugPrint(e.code);
+      debugPrint(e.message);
+
+      rethrow;
+    }
+  }
+
+  Future<void> syncUserEmailToFirestore() async {
+
+    await auth.currentUser?.reload();
+
+    final user = auth.currentUser;
+
+    if (user == null) return;
+
+    final doc = await store.collection('Users').doc(user.uid).get();
+
+    final firestoreEmail = doc.data()?['UserEmail'];
+
+    if (firestoreEmail != user.email) {
+
+      await store.collection('Users').doc(user.uid).update({
+        'UserEmail': user.email,
+      });
 
     }
 
+  }
+
+  Future<void> ensureUserDocumentExists(User user) async {
+    
+    final docRef = store.collection('users').doc(user.uid);
+    final doc = await docRef.get();
+
+    if (!doc.exists) {
+      await docRef.set({
+        'UserID': user.uid,
+        'UserEmail': user.email,
+        'UserPfpUrl': defualtpfp,
+      });
+    }
   }
 
   Future logout() async{
@@ -145,6 +182,36 @@ class FirebaseAuthServices {
       return await auth.signOut();
 
     } on FirebaseAuthException catch (e) {
+
+      return e.message;
+
+    }
+
+  }
+
+  Future delete(String pass) async{
+
+    try{
+
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user == null) return;
+
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: pass,
+      );
+
+      await user.reauthenticateWithCredential(credential);
+
+      await FirebaseFirestore.instance
+        .collection('Users')
+        .doc(user.uid)
+        .delete();
+
+      await user.delete();
+
+    } on FirebaseAuthException catch (e){
 
       return e.message;
 

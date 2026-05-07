@@ -22,9 +22,6 @@ class _LoginPageState extends State<LoginPage> {
   String email = '';
   String pass = '';
   String error = '';
-  
-  // ignore: recursive_getters
-  Function get togglePage => togglePage;
 
   @override
   Widget build(BuildContext context) {
@@ -137,17 +134,31 @@ class _LoginPageState extends State<LoginPage> {
                   SizedBox(height: 20),
 
                   ElevatedButton(
+                    onPressed: () async {
 
-                    onPressed: () {
-                      if(_formKey.currentState!.validate()){
-                        try{
+                      if (_formKey.currentState!.validate()) {
 
-                          dynamic result = auth.loginWithEmailAndPass(email, pass);
-                          debugPrint(result);
+                        setState(() {
+                          error = '';
+                        });
 
-                        } catch(e){
+                        try {
 
-                          debugPrint('Error: $e');
+                          final result = await auth.loginWithEmailAndPass(
+                            email,
+                            pass,
+                          );
+
+                          if (result is String) {
+
+                            setState(() {
+                              error = result;
+                            });
+
+                          }
+
+                        } catch (e) {
+
                           setState(() {
                             error = 'An error occurred, please try again.';
                           });
@@ -158,9 +169,7 @@ class _LoginPageState extends State<LoginPage> {
 
                     style: signupButton(),
 
-                    child: Text(
-                      'Login',
-                    ),
+                    child: const Text('Login'),
                   ),
 
                   SizedBox(height: 10),

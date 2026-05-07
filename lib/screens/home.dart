@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:basic_auth_app/Services/auth.dart';
 import 'package:basic_auth_app/constants/Input_decorations.dart';
 import 'package:basic_auth_app/constants/button_decorations.dart';
@@ -16,33 +18,56 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+
   final FirebaseAuthServices auth = FirebaseAuthServices();
-  final _formKey = GlobalKey<FormState>();
+  final _emailForm = GlobalKey<FormState>();
+  final _deleteform = GlobalKey<FormState>();
   final ImagePicker picker = ImagePicker();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
+  final TextEditingController _deletePassController = TextEditingController();
 
-  String email = '';
-  String pass = '';
+  bool? emailVerified;
+
   String error = '';
 
   late String userID;
   late String userEmail;
-  late bool emailVerified;
   String? userPfpURL;
   String? base64Image;
-
-  // Separate FocusNodes for email and password
-  final FocusNode _emailFocusNode = FocusNode();
-  final FocusNode _passFocusNode = FocusNode();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passController.dispose();
-    _emailFocusNode.dispose();
-    _passFocusNode.dispose();  // Dispose the focus nodes
+    _deletePassController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    syncEmail();
+    loadVerificationStatus();
+  }
+
+  
+  Future<void> syncEmail() async {
+
+    await auth.syncUserEmailToFirestore();
+    if (!mounted) return;
+    setState(() {});
+
+  }
+
+  Future<void> loadVerificationStatus() async {
+
+    await auth.currentUser?.reload();
+    if (!mounted) return;
+    setState(() {
+      emailVerified = auth.currentUser?.emailVerified;
+    });
+
   }
 
   @override
@@ -58,22 +83,29 @@ class _HomePageState extends State<HomePage> {
         child: Padding(
           padding: const EdgeInsets.only(top: 50, left: 10, right: 10),
           child: Center(
-            child: FutureBuilder<DocumentSnapshot>(
-              future: auth.userData(),
+            child: StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance.collection("Users").doc(auth.currentUser!.uid).snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
                 }
 
-                if (!snapshot.hasData) {
-                  return const Text('No data available.');
+                if (!snapshot.hasData || !snapshot.data!.exists) {
+                  return const Center(child: Text("Creating user profile..."));
                 }
 
-                var data = snapshot.data!.data() as Map<String, dynamic>;
+                final rawData = snapshot.data!.data();
+
+                if (rawData == null) {
+                  return const Center(
+                    child: Text("User data not found"),
+                  );
+                }
+
+                final data = rawData as Map<String, dynamic>;
 
                 userID = data['UserID'];
                 userEmail = data['UserEmail'];
-                emailVerified = data['IsEmailVerified'];
 
                 String? profilePicture = data['UserPfpUrl'];
 
@@ -143,17 +175,18 @@ class _HomePageState extends State<HomePage> {
                               color: Colors.black,
                             ),
                           ),
-                          TextSpan(
-                            text: ' Verify?',
-                            style: TextStyle(
-                              fontSize: 20,
-                              color: const Color.fromARGB(255, 24, 57, 118),
+                          if(emailVerified!=null && emailVerified==false)
+                            TextSpan(
+                              text: ' Verify?',
+                              style: TextStyle(
+                                fontSize: 20,
+                                color: const Color.fromARGB(255, 24, 57, 118),
+                              ),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () {
+                                  auth.currentUser?.sendEmailVerification();
+                                },
                             ),
-                            recognizer: TapGestureRecognizer()
-                              ..onTap = () {
-                                auth.currentUser?.sendEmailVerification();
-                              },
-                          ),
                         ],
                       ),
                     ),
@@ -168,12 +201,14 @@ class _HomePageState extends State<HomePage> {
                           radius: 50,
                           backgroundColor: Colors.black,
                           child: ClipOval(
-                            child: Image.memory(
-                              base64Decode(profilePicture!),
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                            ),
+                            child: profilePicture==null?
+                              CircleAvatar(radius: 50, child: Icon(Icons.person)):
+                              Image.memory(
+                                base64Decode(profilePicture),
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
                           ),
                         ),
                         Positioned(
@@ -190,8 +225,8 @@ class _HomePageState extends State<HomePage> {
                                 if (image != null) {
                                   Uint8List imageBytes = await image.readAsBytes();
 
-                                  await auth.uploadProfilePicture(
-                                      base64Encode(imageBytes));
+                                  await auth.uploadProfilePicture(base64Encode(imageBytes));
+                                  setState(() {});
                                 }
                               },
                               child: Icon(Icons.camera_alt, size: 15),
@@ -220,7 +255,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                             recognizer: TapGestureRecognizer()
                               ..onTap = () {
-                                auth.reserPassword(userEmail);
+                                auth.resetPassword(userEmail);
                               },
                           ),
                         ],
@@ -231,13 +266,12 @@ class _HomePageState extends State<HomePage> {
                         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     SizedBox(height: 30),
                     Form(
-                      key: _formKey,
+                      key: _emailForm,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           // Email Input Field
                           TextFormField(
-                            focusNode: _emailFocusNode,
                             controller: _emailController,
                             decoration: singupInputdecoration(
                                 icon: Icons.mail,
@@ -258,39 +292,57 @@ class _HomePageState extends State<HomePage> {
                           SizedBox(height: 20),
                           // Password Input Field
                           TextFormField(
-                            focusNode: _passFocusNode,
                             controller: _passController,
                             obscureText: true,
                             decoration: singupInputdecoration(
                                 icon: Icons.password,
                                 labelText: 'Password',
                                 hintText: 'JohnDoe'),
-                            onChanged: (value) {
-                              setState(() {
-                                pass = value;
-                              });
-                            },
+
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Enter a password.';
                               }
                               return null;
                             },
+
                           ),
                           Center(child: Text(error)),
                           ElevatedButton(
                             onPressed: () async {
-                              if (_formKey.currentState!.validate()) {
+                              if (_emailForm.currentState!.validate()) {
                                 try {
-                                  bool  result = await auth.resetEmail(
+                                  final result = await auth.resetEmail(
                                       _emailController.text.trim(),
                                       _passController.text.trim());
 
                                   if (result) {
-                                    setState(() {
-                                      error = 'Email verification Link Sent.';
-                                    });
+
+                                    if (!mounted) return;
+
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) {
+                                        return AlertDialog(
+                                          icon: const Icon(Icons.check),
+                                          title: const Text('Success'),
+                                          content: const Text(
+                                            'Successfully sent verification email in your new mail. Check it to change email.',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                                auth.logout();
+                                              },
+                                              child: const Text('OK'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
                                   }
+
                                 } catch (e) {
                                   debugPrint(e.toString());
                                 }
@@ -302,6 +354,88 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     ),
+
+                    SizedBox(height: 30),
+
+                    Text('Delete Account: ',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold
+                      )
+                    ),
+
+                    SizedBox(height: 30),
+
+                    Form(
+                      key: _deleteform,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+
+                          TextFormField(
+                            controller: _deletePassController,
+                            obscureText: true,
+                            decoration: singupInputdecoration(
+                                icon: Icons.password,
+                                labelText: 'Password',
+                                hintText: 'JohnDoe'),
+
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Enter a password.';
+                              }
+                              return null;
+                            },
+
+                          ),
+
+                          Center(child: Text(error)),
+
+                          ElevatedButton(
+                            onPressed: () async {
+                              if (_deleteform.currentState!.validate()) {
+                                try {
+
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) {
+                                      return AlertDialog(
+                                        icon: const Icon(Icons.delete),
+                                        title: const Text('Are you sure?'),
+                                        content: const Text('Are you sure you want to delete the account?'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context, true),
+                                            child: const Text('Yes'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context, false),
+                                            child: const Text('No'),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+
+                                  if (confirm != true){
+                                    return;
+                                  }
+                                  else{
+                                    auth.delete(_deletePassController.text.trim());
+                                  }
+
+                                } catch (e) {
+                                  debugPrint(e.toString());
+                                }
+                              }
+                            },
+                            style: signupButton(),
+                            child: Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 60),
                   ],
                 );
               },
